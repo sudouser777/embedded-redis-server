@@ -9,10 +9,15 @@ A lightweight, embeddable Redis-compatible server written in Kotlin. Perfect for
 ## Features
 
 ✅ **Redis Protocol Compatible** - Implements RESP2 protocol
+
 ✅ **Embedded & Lightweight** - Run Redis in-process, no external dependencies
+
 ✅ **Spring Boot Integration** - Auto-configuration support for Spring Boot applications
+
 ✅ **Easy to Use** - Simple API for standalone applications
+
 ✅ **Fast** - Kotlin coroutines for concurrent operations
+
 ✅ **Testing Friendly** - Perfect for unit and integration tests
 
 ## Supported Redis Commands
