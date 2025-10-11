@@ -1,8 +1,11 @@
 # Embedded Redis Server
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0)
+[![GitHub Release](https://img.shields.io/github/v/release/sudouser777/embedded-redis-server)](https://github.com/sudouser777/embedded-redis-server/releases)
+[![Build Status](https://github.com/sudouser777/embedded-redis-server/workflows/Build%20and%20Test/badge.svg)](https://github.com/sudouser777/embedded-redis-server/actions)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Kotlin](https://img.shields.io/badge/kotlin-1.9.22-purple.svg)](https://kotlinlang.org/)
+[![Java](https://img.shields.io/badge/java-21+-orange.svg)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/spring--boot-3.2+-green.svg)](https://spring.io/projects/spring-boot)
 
 A lightweight, embeddable Redis-compatible server written in Kotlin. Perfect for testing, development, and scenarios where you need an in-memory Redis instance without installing Redis itself.
 
