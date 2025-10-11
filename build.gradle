@@ -1,0 +1,91 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.9.22'
+    id 'org.jetbrains.kotlin.plugin.spring' version '1.9.22'
+    id 'java-library'
+    id 'maven-publish'
+    id 'application'
+}
+
+group = 'io.github.embeddedredis'
+version = '1.0.0'
+description = 'Embedded Redis Server - A lightweight, embeddable Redis-compatible server for testing and development'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Core dependencies
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3'
+
+    // Logging
+    implementation 'io.github.oshai:kotlin-logging-jvm:5.1.0'
+    implementation 'org.slf4j:slf4j-api:2.0.9'
+    compileOnly 'ch.qos.logback:logback-classic:1.5.13'
+
+    // Spring Boot (optional dependencies for auto-configuration)
+    compileOnly 'org.springframework.boot:spring-boot-starter:3.2.0'
+    compileOnly 'org.springframework.boot:spring-boot-autoconfigure:3.2.0'
+    annotationProcessor 'org.springframework.boot:spring-boot-autoconfigure-processor:3.2.0'
+
+    // Test dependencies
+    testImplementation 'org.jetbrains.kotlin:kotlin-test'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'redis.clients:jedis:5.1.0'
+    testImplementation 'ch.qos.logback:logback-classic:1.5.13'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test:3.2.0'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+kotlin {
+    jvmToolchain(21)
+}
+
+application {
+    mainClass = 'io.github.embeddedredis.RedisServerKt'
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+
+            pom {
+                name = 'Embedded Redis Server'
+                description = 'A lightweight, embeddable Redis-compatible server for testing and development'
+                url = 'https://github.com/sudouser777/embedded-redis-server'
+
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'sudouser777'
+                        name = 'sudouser777'
+                        email = 'sudouser777@users.noreply.github.com'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:git://github.com/sudouser777/embedded-redis-server.git'
+                    developerConnection = 'scm:git:ssh://github.com:sudouser777/embedded-redis-server.git'
+                    url = 'https://github.com/sudouser777/embedded-redis-server'
+                }
+            }
+        }
+    }
+}
