@@ -16,8 +16,10 @@ class RedisServer(
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var serverSocket: ServerSocket? = null
     fun start() {
-        serverSocket = ServerSocket(port).apply {
+        // Bind explicitly to the provided host to respect configuration
+        serverSocket = ServerSocket().apply {
             reuseAddress = true
+            bind(java.net.InetSocketAddress(host, port))
         }
         logger.info { "Redis server starting on $host:$port" }
         scope.launch {
@@ -35,7 +37,7 @@ class RedisServer(
                 }
             }
         }
-        logger.info { "Redis server started successfully on port $port" }
+        logger.info { "Redis server started successfully on $host:$port" }
     }
     private suspend fun handleClient(client: Socket) = withContext(Dispatchers.IO) {
         try {
@@ -49,6 +51,12 @@ class RedisServer(
                             output.writeResp(RespError("ERR invalid command format"))
                             continue
                         }
+                        // Handle QUIT explicitly: reply OK and close the connection
+                        val cmd = (command.firstOrNull() as? String)?.uppercase()
+                        if (cmd == "QUIT") {
+                            output.writeResp("OK")
+                            break
+                        }
                         logger.debug { "Received command: $command" }
                         val response = commandHandler.handle(command)
                         logger.debug { "Sending response: $response" }
@@ -57,6 +65,14 @@ class RedisServer(
                         // Likely RESP3 negotiation or invalid protocol - skip and continue
                         logger.debug { "Skipping invalid RESP data: ${e.message}" }
                         continue
+                    } catch (e: IllegalStateException) {
+                        // Client closed connection or stream ended
+                        logger.debug { "Client stream closed: ${e.message}" }
+                        break
+                    } catch (e: java.io.IOException) {
+                        // Client connection issues (reset/broken pipe). Treat as normal disconnect.
+                        logger.debug { "Client IO error, closing connection: ${e.message}" }
+                        break
                     } catch (e: Exception) {
                         logger.error(e) { "Error processing command" }
                         try {

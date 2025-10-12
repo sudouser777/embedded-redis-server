@@ -120,8 +120,8 @@ class CommandHandler(private val dataStore: DataStore) {
         )
     }
     private fun handleSetNX(args: List<Any?>): Any {
-        // SETNX key value - Set if Not eXists
-        // Returns 1 if key was set, 0 if key already exists
+        // SETNX key value - Set if Not exists
+        // Returns 1 if the key was set, 0 if the key already exists
         if (args.size < 3) {
             return RespError("ERR wrong number of arguments for 'setnx' command")
         }
@@ -131,7 +131,7 @@ class CommandHandler(private val dataStore: DataStore) {
         return if (success) 1L else 0L
     }
     private fun handleSetEX(args: List<Any?>): Any {
-        // SETEX key seconds value - SET with EXpiration
+        // SETEX key seconds value - SET with Expiration
         if (args.size < 4) {
             return RespError("ERR wrong number of arguments for 'setex' command")
         }

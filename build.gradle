@@ -35,7 +35,11 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'redis.clients:jedis:5.1.0'
     testImplementation 'ch.qos.logback:logback-classic:1.5.13'
-    testImplementation 'org.springframework.boot:spring-boot-starter-test:3.2.0'
+    // Use lean spring-boot-test (no starter) to keep test classpath light
+    testImplementation 'org.springframework.boot:spring-boot-test:3.2.0'
+    // Minimal extras for ApplicationContextRunner
+    testImplementation 'org.springframework.boot:spring-boot-autoconfigure:3.2.0'
+    testImplementation 'org.assertj:assertj-core:3.24.2'
 }
 
 test {

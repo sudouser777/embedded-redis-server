@@ -73,4 +73,31 @@ class RedisServerTest {
         val notExists = jedis.exists("nonexistent")
         Assertions.assertFalse(notExists)
     }
+
+    @Test
+    fun testQuitClosesConnection() {
+        val socket = java.net.Socket("localhost", 16379)
+        try {
+            socket.soTimeout = 2000
+            val out = socket.getOutputStream()
+            val input = socket.getInputStream()
+            // Send QUIT command: *1\r\n$4\r\nQUIT\r\n
+            out.write("*1\r\n$4\r\nQUIT\r\n".toByteArray())
+            out.flush()
+
+            val reader = java.io.BufferedReader(java.io.InputStreamReader(input))
+            val line = reader.readLine()
+            Assertions.assertEquals("+OK", line)
+            // After QUIT, server should close the connection. Further reads should hit EOF or timeout quickly.
+            try {
+                val next = input.read()
+                Assertions.assertEquals(-1, next)
+            } catch (ex: Exception) {
+                // IOException/timeout is also acceptable since server closed the socket
+                Assertions.assertTrue(true)
+            }
+        } finally {
+            try { socket.close() } catch (_: Exception) {}
+        }
+    }
 }

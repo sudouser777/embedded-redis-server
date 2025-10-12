@@ -4,7 +4,7 @@ import java.io.InputStream
 import java.io.OutputStream
 
 /**
- * RESP3 Protocol implementation for Redis
+ * RESP2 Protocol implementation for Redis (compatible with common clients like Jedis)
  */
 object RespProtocol {
     fun serialize(value: Any?): ByteArray {
@@ -28,7 +28,9 @@ object RespProtocol {
     }
 
     fun parse(input: InputStream): Any? {
-        return when (val type = input.read().toChar()) {
+        val first = input.read()
+        if (first == -1) throw IllegalStateException("Unexpected end of stream")
+        return when (val type = first.toChar()) {
             '+' -> readSimpleString(input)
             '-' -> RespError(readSimpleString(input))
             ':' -> readSimpleString(input).toLong()

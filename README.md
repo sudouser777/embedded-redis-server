@@ -22,13 +22,23 @@ A lightweight, embeddable Redis-compatible server written in Kotlin. Perfect for
 ✅ **Fast** - Kotlin coroutines for concurrent operations
 
 ✅ **Testing Friendly** - Perfect for unit and integration tests
+✅ **Graceful Connections** - QUIT command supported; client disconnects handled cleanly
 
 ## Supported Redis Commands
 
-- **Connection**: `PING`, `ECHO`, `HELLO`
+- **Connection**: `PING`, `ECHO`, `HELLO`, `QUIT`
 - **Key-Value**: `SET`, `GET`, `DEL`, `EXISTS`
 - **Legacy**: `SETNX`, `SETEX`
 - **Options**: Expiration (`EX`, `PX`), Conditional Sets (`NX`, `XX`)
+
+### Connection handling and binding
+
+- The server implements RESP2 and explicitly supports the QUIT command. After replying +OK, the server closes the client socket.
+- EOF, connection reset, and broken pipe from clients are treated as normal disconnects and are not logged as errors.
+- The server binds explicitly to the configured host and port:
+  - host=127.0.0.1 or ::1 limits access to the local machine only.
+  - host=0.0.0.0 (default for standalone) listens on all interfaces.
+  - In Spring Boot, the default host is localhost unless overridden via properties.
 
 ## Installation
 
