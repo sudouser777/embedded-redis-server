@@ -29,6 +29,7 @@ A lightweight, embeddable Redis-compatible server written in Kotlin. Perfect for
 - **Connection**: `PING`, `ECHO`, `HELLO`, `QUIT`
 - **Key-Value**: `SET`, `GET`, `DEL`, `EXISTS`
 - **Legacy**: `SETNX`, `SETEX`
+- **Hash**: `HSET`, `HSETNX`, `HGET`, `HMGET`, `HINCRBY`
 - **Options**: Expiration (`EX`, `PX`), Conditional Sets (`NX`, `XX`)
 
 ### Connection handling and binding
