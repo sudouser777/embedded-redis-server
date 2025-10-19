@@ -1,5 +1,6 @@
 package io.github.embeddedredis
 
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 
@@ -13,15 +14,17 @@ object RespProtocol {
             is String -> "+$value\r\n".toByteArray()
             is Int -> ":$value\r\n".toByteArray()
             is Long -> ":$value\r\n".toByteArray()
-            is ByteArray -> "$${value.size}\r\n".toByteArray() + value + "\r\n".toByteArray()
-            is List<*> -> {
-                val result = StringBuilder("*${value.size}\r\n")
+            is ByteArray -> ByteArrayOutputStream().apply {
+                write("$${value.size}\r\n".toByteArray())
+                write(value)
+                write("\r\n".toByteArray())
+            }.toByteArray()
+            is List<*> -> ByteArrayOutputStream().apply {
+                write("*${value.size}\r\n".toByteArray())
                 value.forEach { item ->
-                    result.append(String(serialize(item)))
+                    write(serialize(item))
                 }
-                result.toString().toByteArray()
-            }
-
+            }.toByteArray()
             is RespError -> "-${value.message}\r\n".toByteArray()
             else -> serialize(value.toString())
         }
@@ -57,7 +60,7 @@ object RespProtocol {
         throw IllegalStateException("Unexpected end of stream")
     }
 
-    private fun readBulkString(reader: InputStream): String? {
+    private fun readBulkString(reader: InputStream): Any? {
         val lengthStr = readSimpleString(reader)
         val length = lengthStr.toInt()
         if (length == -1) {
