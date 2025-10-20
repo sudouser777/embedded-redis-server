@@ -80,6 +80,8 @@ fun main() {
 
 ## Spring Boot Application
 
+Note: Spring integration uses a SmartLifecycle adapter to manage RedisServer startup/shutdown. The core RedisServer remains Spring-free for standalone usage.
+
 ### Step 1: Dependencies (build.gradle.kts)
 
 ```kotlin

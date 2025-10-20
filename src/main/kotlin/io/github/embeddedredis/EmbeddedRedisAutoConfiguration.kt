@@ -22,14 +22,21 @@ class EmbeddedRedisAutoConfiguration(
 
     @Bean
     fun embeddedRedisServer(): RedisServer {
-        val redisServer = RedisServer(port = properties.port, host = properties.host)
-
-        if (properties.autoStart) {
-            redisServer.start()
-        }
-
+        val redisServer = RedisServer(
+            port = properties.port,
+            host = properties.host
+        )
         this.server = redisServer
         return redisServer
+    }
+
+    @Bean
+    fun embeddedRedisServerLifecycleAdapter(redisServer: RedisServer): RedisServerLifecycleAdapter {
+        return RedisServerLifecycleAdapter(
+            server = redisServer,
+            autoStartup = properties.autoStart,
+            phase = 0
+        )
     }
 
     @PreDestroy

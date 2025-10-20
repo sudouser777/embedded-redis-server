@@ -26,9 +26,21 @@ class EmbeddedRedisAutoConfigurationTest {
                 val server = context.getBean(RedisServer::class.java)
                 Assertions.assertNotNull(server)
 
+                // Should be started by SmartLifecycle
+                Assertions.assertTrue(server.isRunning())
+
                 Jedis("127.0.0.1", port).use { jedis ->
                     val pong = jedis.ping()
                     Assertions.assertEquals("PONG", pong)
+                }
+
+                // Closing the context should stop the server
+                context.close()
+                try {
+                    Jedis("127.0.0.1", port).use { jedis -> jedis.ping() }
+                    Assertions.fail("Connection should not succeed after context close")
+                } catch (_: Exception) {
+                    Assertions.assertTrue(true)
                 }
             }
     }
@@ -48,13 +60,31 @@ class EmbeddedRedisAutoConfigurationTest {
                 val server = context.getBean(RedisServer::class.java)
                 Assertions.assertNotNull(server)
 
+                // Should not be started automatically
+                Assertions.assertFalse(server.isRunning())
+
                 // Attempt to connect should fail because the server is not started
                 try {
                     Jedis("127.0.0.1", port).use { jedis -> jedis.ping() }
                     Assertions.fail("Connection should not succeed when autoStart is false")
-                } catch (ex: Exception) {
-                    // Expected: connection should be refused or fail
-                    Assertions.assertTrue(true)
+                } catch (_: Exception) {
+                    // Expected
+                }
+
+                // Manual start should work in non-Spring style usage
+                server.start()
+                Jedis("127.0.0.1", port).use { jedis ->
+                    val pong = jedis.ping()
+                    Assertions.assertEquals("PONG", pong)
+                }
+
+                // Manual stop should stop it again
+                server.stop()
+                try {
+                    Jedis("127.0.0.1", port).use { jedis -> jedis.ping() }
+                    Assertions.fail("Connection should not succeed after manual stop")
+                } catch (_: Exception) {
+                    // Expected
                 }
             }
     }

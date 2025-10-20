@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class DataStore {
     private val data = ConcurrentHashMap<String, Value>()
-    private val expirationQueue = ConcurrentHashMap<String, Long>()
+    private val expirations = ConcurrentHashMap<String, Long>()
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     init {
@@ -50,15 +50,12 @@ class DataStore {
     fun del(vararg keys: String): Int {
         var count = 0
         keys.forEach { key ->
-            val value = getValue(key)
-            if (value != null) {
-                if (data.remove(key) != null) {
-                    expirationQueue.remove(key)
-                    count++
-                }
+            val removed = data.remove(key)
+            if (removed != null) {
+                expirations.remove(key)
+                count++
             } else {
-                data.remove(key)
-                expirationQueue.remove(key)
+                expirations.remove(key)
             }
         }
         return count
@@ -79,16 +76,7 @@ class DataStore {
 
         var added = 0L
         data.compute(key) { _, existing ->
-            val now = System.currentTimeMillis()
-            val target = when {
-                existing == null -> Value(StoredValue.HashValue(ConcurrentHashMap()), null)
-                isExpired(existing, now) -> {
-                    expirationQueue.remove(key)
-                    Value(StoredValue.HashValue(ConcurrentHashMap()), null)
-                }
-                existing.data is StoredValue.HashValue -> existing
-                else -> throw WrongTypeException()
-            }
+            val target = ensureHash(existing, key)
             val hashEntries = (target.data as StoredValue.HashValue).entries
             fieldValuePairs.forEach { (field, fieldValue) ->
                 val previous = hashEntries.put(field, fieldValue)
@@ -105,16 +93,7 @@ class DataStore {
     fun hsetnx(key: String, field: String, value: String): Long {
         var added = 0L
         data.compute(key) { _, existing ->
-            val now = System.currentTimeMillis()
-            val target = when {
-                existing == null -> Value(StoredValue.HashValue(ConcurrentHashMap()), null)
-                isExpired(existing, now) -> {
-                    expirationQueue.remove(key)
-                    Value(StoredValue.HashValue(ConcurrentHashMap()), null)
-                }
-                existing.data is StoredValue.HashValue -> existing
-                else -> throw WrongTypeException()
-            }
+            val target = ensureHash(existing, key)
             val hashEntries = (target.data as StoredValue.HashValue).entries
             if (!hashEntries.containsKey(field)) {
                 hashEntries[field] = value
@@ -139,16 +118,7 @@ class DataStore {
     fun hincrBy(key: String, field: String, increment: Long): Long {
         var result = 0L
         data.compute(key) { _, existing ->
-            val now = System.currentTimeMillis()
-            val target = when {
-                existing == null -> Value(StoredValue.HashValue(ConcurrentHashMap()), null)
-                isExpired(existing, now) -> {
-                    expirationQueue.remove(key)
-                    Value(StoredValue.HashValue(ConcurrentHashMap()), null)
-                }
-                existing.data is StoredValue.HashValue -> existing
-                else -> throw WrongTypeException()
-            }
+            val target = ensureHash(existing, key)
             val hashEntries = (target.data as StoredValue.HashValue).entries
             val current = hashEntries[field]?.toLongOrNull()
                 ?: if (hashEntries.containsKey(field)) {
@@ -169,12 +139,25 @@ class DataStore {
         scope.cancel()
     }
 
+    private fun ensureHash(existing: Value?, key: String): Value {
+        val now = System.currentTimeMillis()
+        return when {
+            existing == null -> Value(StoredValue.HashValue(ConcurrentHashMap()), null)
+            isExpired(existing, now) -> {
+                expirations.remove(key)
+                Value(StoredValue.HashValue(ConcurrentHashMap()), null)
+            }
+            existing.data is StoredValue.HashValue -> existing
+            else -> throw WrongTypeException()
+        }
+    }
+
     private fun getValue(key: String): Value? {
         val value = data[key] ?: return null
         val now = System.currentTimeMillis()
         return if (isExpired(value, now)) {
             data.remove(key)
-            expirationQueue.remove(key)
+            expirations.remove(key)
             null
         } else {
             value
@@ -196,9 +179,9 @@ class DataStore {
 
     private fun synchronizeExpiration(key: String, value: Value) {
         if (value.expiresAt != null) {
-            expirationQueue[key] = value.expiresAt
+            expirations[key] = value.expiresAt
         } else {
-            expirationQueue.remove(key)
+            expirations.remove(key)
         }
     }
 
@@ -209,7 +192,7 @@ class DataStore {
 
     private fun cleanupExpired() {
         val now = System.currentTimeMillis()
-        val iterator = expirationQueue.entries.iterator()
+        val iterator = expirations.entries.iterator()
         while (iterator.hasNext()) {
             val entry = iterator.next()
             if (now > entry.value) {
