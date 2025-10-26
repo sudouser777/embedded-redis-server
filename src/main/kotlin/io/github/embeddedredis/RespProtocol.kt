@@ -1,7 +1,9 @@
 package io.github.embeddedredis
 
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
+import java.nio.charset.StandardCharsets
 
 /**
  * RESP2 Protocol implementation for Redis (compatible with common clients like Jedis)
@@ -10,18 +12,33 @@ object RespProtocol {
     fun serialize(value: Any?): ByteArray {
         return when (value) {
             null -> "$-1\r\n".toByteArray()
+            is RespStatus -> "+${value.message}\r\n".toByteArray()
+            is RespBulkString -> {
+                val data = value.data
+                if (data == null) {
+                    "$-1\r\n".toByteArray()
+                } else {
+                    ByteArrayOutputStream().apply {
+                        write("$${data.size}\r\n".toByteArray())
+                        write(data)
+                        write("\r\n".toByteArray())
+                    }.toByteArray()
+                }
+            }
             is String -> "+$value\r\n".toByteArray()
             is Int -> ":$value\r\n".toByteArray()
             is Long -> ":$value\r\n".toByteArray()
-            is ByteArray -> "$${value.size}\r\n".toByteArray() + value + "\r\n".toByteArray()
-            is List<*> -> {
-                val result = StringBuilder("*${value.size}\r\n")
+            is ByteArray -> ByteArrayOutputStream().apply {
+                write("$${value.size}\r\n".toByteArray())
+                write(value)
+                write("\r\n".toByteArray())
+            }.toByteArray()
+            is List<*> -> ByteArrayOutputStream().apply {
+                write("*${value.size}\r\n".toByteArray())
                 value.forEach { item ->
-                    result.append(String(serialize(item)))
+                    write(serialize(item))
                 }
-                result.toString().toByteArray()
-            }
-
+            }.toByteArray()
             is RespError -> "-${value.message}\r\n".toByteArray()
             else -> serialize(value.toString())
         }
@@ -57,7 +74,7 @@ object RespProtocol {
         throw IllegalStateException("Unexpected end of stream")
     }
 
-    private fun readBulkString(reader: InputStream): String? {
+    private fun readBulkString(reader: InputStream): Any? {
         val lengthStr = readSimpleString(reader)
         val length = lengthStr.toInt()
         if (length == -1) {
@@ -74,7 +91,7 @@ object RespProtocol {
         }
         reader.read()
         reader.read()
-        return String(bytes)
+        return String(bytes, StandardCharsets.UTF_8)
     }
 
     private fun readArray(reader: InputStream): List<Any?> {
@@ -88,6 +105,29 @@ object RespProtocol {
             result.add(parse(reader))
         }
         return result
+    }
+}
+
+// Explicit RESP response wrappers
+
+data class RespStatus(val message: String)
+
+data class RespBulkString(val data: ByteArray?) {
+    companion object {
+        fun fromString(value: String?): RespBulkString =
+            if (value == null) RespBulkString(null) else RespBulkString(value.toByteArray(StandardCharsets.UTF_8))
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RespBulkString) return false
+        if (data === other.data) return true
+        if (data == null || other.data == null) return false
+        return data.contentEquals(other.data)
+    }
+
+    override fun hashCode(): Int {
+        return data?.contentHashCode() ?: 0
     }
 }
 

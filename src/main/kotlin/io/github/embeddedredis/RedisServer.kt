@@ -3,6 +3,9 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.*
 import java.net.ServerSocket
 import java.net.Socket
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
+import java.util.concurrent.atomic.AtomicBoolean
 private val logger = KotlinLogging.logger {}
 /**
  * Redis-compatible TCP server
@@ -15,14 +18,21 @@ class RedisServer(
     private val commandHandler = CommandHandler(dataStore)
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var serverSocket: ServerSocket? = null
+    private val running = AtomicBoolean(false)
+    private var acceptJob: Job? = null
+
     fun start() {
+        if (!running.compareAndSet(false, true)) {
+            logger.warn { "Redis server already started" }
+            return
+        }
+        logger.info { "Redis server starting on $host:$port" }
         // Bind explicitly to the provided host to respect configuration
         serverSocket = ServerSocket().apply {
             reuseAddress = true
             bind(java.net.InetSocketAddress(host, port))
         }
-        logger.info { "Redis server starting on $host:$port" }
-        scope.launch {
+        acceptJob = scope.launch {
             try {
                 while (isActive) {
                     val client = serverSocket!!.accept()
@@ -31,6 +41,8 @@ class RedisServer(
                         handleClient(client)
                     }
                 }
+            } catch (_: CancellationException) {
+                logger.debug { "Accept loop canceled" }
             } catch (e: Exception) {
                 if (isActive) {
                     logger.error(e) { "Error accepting connections" }
@@ -39,12 +51,14 @@ class RedisServer(
         }
         logger.info { "Redis server started successfully on $host:$port" }
     }
-    private suspend fun handleClient(client: Socket) = withContext(Dispatchers.IO) {
+    private fun handleClient(client: Socket) {
         try {
             client.use { socket ->
-                val input = socket.getInputStream()
-                val output = socket.getOutputStream()
-                while (isActive && !socket.isClosed) {
+                socket.tcpNoDelay = true
+                socket.keepAlive = true
+                val input = BufferedInputStream(socket.getInputStream())
+                val output = BufferedOutputStream(socket.getOutputStream())
+                while (!socket.isClosed) {
                     try {
                         val command = RespProtocol.parse(input) as? List<*>
                         if (command == null) {
@@ -54,7 +68,7 @@ class RedisServer(
                         // Handle QUIT explicitly: reply OK and close the connection
                         val cmd = (command.firstOrNull() as? String)?.uppercase()
                         if (cmd == "QUIT") {
-                            output.writeResp("OK")
+                            output.writeResp(RespStatus("OK"))
                             break
                         }
                         logger.debug { "Received command: $command" }
@@ -62,9 +76,9 @@ class RedisServer(
                         logger.debug { "Sending response: $response" }
                         output.writeResp(response)
                     } catch (e: IllegalArgumentException) {
-                        // Likely RESP3 negotiation or invalid protocol - skip and continue
-                        logger.debug { "Skipping invalid RESP data: ${e.message}" }
-                        continue
+                        // Invalid RESP data - close the connection to avoid stream desync
+                        logger.debug { "Invalid RESP data, closing connection: ${e.message}" }
+                        break
                     } catch (e: IllegalStateException) {
                         // Client closed connection or stream ended
                         logger.debug { "Client stream closed: ${e.message}" }
@@ -77,24 +91,38 @@ class RedisServer(
                         logger.error(e) { "Error processing command" }
                         try {
                             output.writeResp(RespError("ERR ${e.message}"))
-                        } catch (writeError: Exception) {
-                            logger.debug { "Could not send error response: ${writeError.message}" }
+                        } catch (_: Exception) {
                             break
                         }
                     }
                 }
             }
         } catch (e: Exception) {
-            logger.info { "Client disconnected: ${e.message}" }
+            logger.debug { "Client disconnected: ${e.message}" }
         }
     }
     fun stop() {
+        if (!running.compareAndSet(true, false)) {
+            return
+        }
         logger.info { "Shutting down Redis server" }
+        try {
+            serverSocket?.close()
+        } catch (e: Exception) {
+            logger.debug { "Error closing server socket: ${e.message}" }
+        } finally {
+            serverSocket = null
+        }
+        try {
+            acceptJob?.cancel()
+        } catch (_: Exception) {
+        }
         scope.cancel()
-        serverSocket?.close()
         dataStore.shutdown()
         logger.info { "Redis server stopped" }
     }
+
+    fun isRunning(): Boolean = running.get()
 }
 fun main() {
     val server = RedisServer()

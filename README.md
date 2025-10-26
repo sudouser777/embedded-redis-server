@@ -15,13 +15,14 @@ A lightweight, embeddable Redis-compatible server written in Kotlin. Perfect for
 
 ✅ **Embedded & Lightweight** - Run Redis in-process, no external dependencies
 
-✅ **Spring Boot Integration** - Auto-configuration support for Spring Boot applications
+✅ **Spring Boot Integration** - Auto-configuration support for Spring Boot applications (via a SmartLifecycle adapter; core server is Spring-free)
 
 ✅ **Easy to Use** - Simple API for standalone applications
 
 ✅ **Fast** - Kotlin coroutines for concurrent operations
 
 ✅ **Testing Friendly** - Perfect for unit and integration tests
+
 ✅ **Graceful Connections** - QUIT command supported; client disconnects handled cleanly
 
 ## Supported Redis Commands
@@ -29,9 +30,21 @@ A lightweight, embeddable Redis-compatible server written in Kotlin. Perfect for
 - **Connection**: `PING`, `ECHO`, `HELLO`, `QUIT`
 - **Key-Value**: `SET`, `GET`, `DEL`, `EXISTS`
 - **Legacy**: `SETNX`, `SETEX`
+- **Hash**: `HSET`, `HSETNX`, `HGET`, `HMGET`, `HINCRBY`
 - **Options**: Expiration (`EX`, `PX`), Conditional Sets (`NX`, `XX`)
 
 ### Connection handling and binding
+
+- RESP responses are aligned with Redis semantics:
+  - Status replies are used for control responses (e.g., +PONG, +OK)
+  - Bulk strings are used for data payloads (GET/ECHO/HGET/HMGET), including null bulk for missing values
+- On invalid RESP framing (malformed protocol), the server closes the connection to avoid stream desynchronization and preserve pipelining guarantees.
+- The server implements RESP2 and explicitly supports the QUIT command. After replying +OK, the server closes the client socket.
+- EOF, connection reset, and broken pipe from clients are treated as normal disconnects and are not logged as errors.
+- The server binds explicitly to the configured host and port:
+  - host=127.0.0.1 or ::1 limits access to the local machine only.
+  - host=0.0.0.0 (default for standalone) listens on all interfaces.
+  - In Spring Boot, the default host is localhost unless overridden via properties.
 
 - The server implements RESP2 and explicitly supports the QUIT command. After replying +OK, the server closes the client socket.
 - EOF, connection reset, and broken pipe from clients are treated as normal disconnects and are not logged as errors.
@@ -87,6 +100,8 @@ fun main() {
 
 ### 2. Spring Boot Integration
 
+Spring support is provided via a SmartLifecycle adapter bean, keeping the core RedisServer free of Spring dependencies. The adapter starts/stops the server with the application lifecycle.
+
 #### Step 1: Add Dependency
 
 Add the embedded-redis-server dependency to your Spring Boot project.
@@ -115,7 +130,7 @@ embedded.redis.auto-start=true
 
 #### Step 3: Use in Your Application
 
-The embedded Redis server will automatically start when your Spring Boot application starts!
+The embedded Redis server will automatically start when your Spring Boot application starts (if embedded.redis.auto-start=true). Under the hood, a RedisServer bean is created and a RedisServerLifecycleAdapter manages its lifecycle.
 
 ```kotlin
 @SpringBootApplication

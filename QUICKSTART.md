@@ -87,6 +87,7 @@ fun myTest() {
 ✅ PING, ECHO, HELLO
 ✅ SET, GET, DEL, EXISTS
 ✅ SETNX, SETEX
+✅ Hash: HSET, HSETNX, HGET, HMGET, HINCRBY
 ✅ Expiration (EX, PX)
 ✅ Conditional sets (NX, XX)
 
