@@ -22,6 +22,7 @@ A lightweight, embeddable Redis-compatible server written in Kotlin. Perfect for
 ✅ **Fast** - Kotlin coroutines for concurrent operations
 
 ✅ **Testing Friendly** - Perfect for unit and integration tests
+
 ✅ **Graceful Connections** - QUIT command supported; client disconnects handled cleanly
 
 ## Supported Redis Commands
