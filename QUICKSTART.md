@@ -23,16 +23,16 @@ cd embedded-redis-server
 **Gradle:**
 ```gradle
 dependencies {
-    implementation 'io.github.embeddedredis:embedded-redis-server:1.0.0'
+    implementation 'io.github.sudouser777:embedded-redis-server:0.0.3'
 }
 ```
 
 **Maven:**
 ```xml
 <dependency>
-    <groupId>io.github.embeddedredis</groupId>
+    <groupId>io.github.sudouser777</groupId>
     <artifactId>embedded-redis-server</artifactId>
-    <version>1.0.0</version>
+    <version>0.0.3</version>
 </dependency>
 ```
 
@@ -84,12 +84,12 @@ fun myTest() {
 
 ## Commands Supported
 
-✅ PING, ECHO, HELLO
-✅ SET, GET, DEL, EXISTS
-✅ SETNX, SETEX
+✅ Connection: PING, ECHO, HELLO, COMMAND COUNT, QUIT
+✅ Strings/Keys: SET, GET, DEL, EXISTS
+✅ Legacy: SETNX, SETEX (rejects non‑positive TTLs)
 ✅ Hash: HSET, HSETNX, HGET, HMGET, HINCRBY
-✅ Expiration (EX, PX)
-✅ Conditional sets (NX, XX)
+✅ Lists: LPUSH, RPUSH, LPOP, RPOP, LLEN, LMOVE, LRANGE, LTRIM
+✅ Options: Expiration (EX, PX), Conditional sets (NX, XX)
 
 ## Need Help?
 

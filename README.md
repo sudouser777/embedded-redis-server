@@ -27,10 +27,11 @@ A lightweight, embeddable Redis-compatible server written in Kotlin. Perfect for
 
 ## Supported Redis Commands
 
-- **Connection**: `PING`, `ECHO`, `HELLO`, `QUIT`
+- **Connection**: `PING`, `ECHO`, `HELLO`, `QUIT`, `COMMAND COUNT`
 - **Key-Value**: `SET`, `GET`, `DEL`, `EXISTS`
-- **Legacy**: `SETNX`, `SETEX`
+- **Legacy**: `SETNX`, `SETEX` (rejects non‑positive TTLs)
 - **Hash**: `HSET`, `HSETNX`, `HGET`, `HMGET`, `HINCRBY`
+- **Lists**: `LPUSH`, `RPUSH`, `LPOP`, `RPOP`, `LLEN`, `LMOVE`, `LRANGE`, `LTRIM`
 - **Options**: Expiration (`EX`, `PX`), Conditional Sets (`NX`, `XX`)
 
 ### Connection handling and binding
@@ -59,7 +60,7 @@ A lightweight, embeddable Redis-compatible server written in Kotlin. Perfect for
 
 ```gradle
 dependencies {
-    implementation 'io.github.sudouser777:embedded-redis-server:0.0.1'
+    implementation 'io.github.sudouser777:embedded-redis-server:0.0.3'
 }
 ```
 
@@ -69,7 +70,7 @@ dependencies {
 <dependency>
     <groupId>io.github.sudouser777</groupId>
     <artifactId>embedded-redis-server</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.3</version>
 </dependency>
 ```
 
@@ -162,9 +163,6 @@ class MyService {
 ### 3. Testing with JUnit
 
 ```kotlin
-import io.github.embeddedredis.RedisServer
-import org.junit.jupiter.api.*
-import redis.clients.jedis.Jedis
 
 class MyRedisTest {
 
@@ -289,7 +287,7 @@ Quick demos without infrastructure setup.
 
 ## Roadmap
 
-- [ ] Additional Redis commands (INCR, DECR, LPUSH, RPUSH, etc.)
+- [ ] Additional Redis commands (INCR, DECR, ... )
 - [ ] Pub/Sub support
 - [ ] Transaction support (MULTI/EXEC)
 - [ ] Lua scripting

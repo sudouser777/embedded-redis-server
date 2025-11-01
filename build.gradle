@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'io.github.sudouser777'
-version = '0.0.2'
+version = '0.0.3'
 description = 'Embedded Redis Server - A lightweight, embeddable Redis-compatible server for testing and development'
 
 repositories {

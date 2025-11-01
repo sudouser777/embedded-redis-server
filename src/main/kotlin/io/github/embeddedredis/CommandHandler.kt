@@ -11,7 +11,8 @@ class CommandHandler(private val dataStore: DataStore) {
     )
 
     private enum class CommandName {
-        PING, ECHO, SET, GET, DEL, EXISTS, COMMAND, HELLO, SETNX, SETEX, HSET, HSETNX, HGET, HMGET, HINCRBY;
+        PING, ECHO, SET, GET, DEL, EXISTS, COMMAND, HELLO, SETNX, SETEX, HSET, HSETNX, HGET, HMGET, HINCRBY,
+        LPUSH, RPUSH, LPOP, RPOP, LLEN, LMOVE, LRANGE, LTRIM;
 
         val lower: String
             get() = name.lowercase()
@@ -39,7 +40,7 @@ class CommandHandler(private val dataStore: DataStore) {
             CommandSpec(setOf(CommandName.EXISTS), { args -> handleExists(args) }, { args ->
                 if (args.size < 2) wrongArity(CommandName.EXISTS) else null
             }),
-            CommandSpec(setOf(CommandName.COMMAND), { _ -> emptyList<Any>() }),
+            CommandSpec(setOf(CommandName.COMMAND), { args -> handleCommand(args) }),
             CommandSpec(setOf(CommandName.HELLO), { _ -> handleHello() }),
             CommandSpec(setOf(CommandName.SETNX), { args -> handleSetNX(args) }, { args ->
                 if (args.size != 3) wrongArity(CommandName.SETNX) else null
@@ -61,6 +62,31 @@ class CommandHandler(private val dataStore: DataStore) {
             }),
             CommandSpec(setOf(CommandName.HINCRBY), { args -> handleHIncrBy(args) }, { args ->
                 if (args.size != 4) wrongArity(CommandName.HINCRBY) else null
+            }),
+            // List commands
+            CommandSpec(setOf(CommandName.LPUSH), { args -> handleLPush(args) }, { args ->
+                if (args.size < 3) wrongArity(CommandName.LPUSH) else null
+            }),
+            CommandSpec(setOf(CommandName.RPUSH), { args -> handleRPush(args) }, { args ->
+                if (args.size < 3) wrongArity(CommandName.RPUSH) else null
+            }),
+            CommandSpec(setOf(CommandName.LPOP), { args -> handleLPop(args) }, { args ->
+                if (args.size != 2) wrongArity(CommandName.LPOP) else null
+            }),
+            CommandSpec(setOf(CommandName.RPOP), { args -> handleRPop(args) }, { args ->
+                if (args.size != 2) wrongArity(CommandName.RPOP) else null
+            }),
+            CommandSpec(setOf(CommandName.LLEN), { args -> handleLLen(args) }, { args ->
+                if (args.size != 2) wrongArity(CommandName.LLEN) else null
+            }),
+            CommandSpec(setOf(CommandName.LRANGE), { args -> handleLRange(args) }, { args ->
+                if (args.size != 4) wrongArity(CommandName.LRANGE) else null
+            }),
+            CommandSpec(setOf(CommandName.LTRIM), { args -> handleLTrim(args) }, { args ->
+                if (args.size != 4) wrongArity(CommandName.LTRIM) else null
+            }),
+            CommandSpec(setOf(CommandName.LMOVE), { args -> handleLMove(args) }, { args ->
+                if (args.size != 5) wrongArity(CommandName.LMOVE) else null
             }),
         )
         return specs.flatMap { spec -> spec.names.map { it to spec } }.toMap()
@@ -144,6 +170,20 @@ class CommandHandler(private val dataStore: DataStore) {
         return dataStore.exists(*keys)
     }
 
+    private fun handleCommand(args: List<Any?>): Any {
+        // Minimal implementation: support COMMAND COUNT, return number of supported commands
+        return if (args.size == 1) {
+            // We don't implement full introspection; return an empty array for base COMMAND
+            emptyList<Any>()
+        } else {
+            val sub = (args[1] as String).uppercase()
+            when (sub) {
+                "COUNT" -> commands.size
+                else -> RespError("ERR unknown subcommand or wrong number of arguments for 'COMMAND $sub'")
+            }
+        }
+    }
+
     private fun handleHello(): Any {
         return listOf(
             "server", "redis",
@@ -169,6 +209,9 @@ class CommandHandler(private val dataStore: DataStore) {
         }
         val key = args[1] as String
         val seconds = (args[2] as String).toLong()
+        if (seconds <= 0) {
+            return RespError("ERR invalid expire time in setex")
+        }
         val value = args[3] as String
         dataStore.set(key, value, seconds * 1000, nx = false, xx = false)
         return RespStatus("OK")
@@ -224,6 +267,69 @@ class CommandHandler(private val dataStore: DataStore) {
         val field = args[2] as String
         val increment = (args[3] as String).toLong()
         return dataStore.hincrBy(key, field, increment)
+    }
+
+    // List handlers
+    private fun handleLPush(args: List<Any?>): Any {
+        val key = args[1] as String
+        val values = args.subList(2, args.size).map { it as String }.toTypedArray()
+        return dataStore.lpush(key, *values)
+    }
+
+    private fun handleRPush(args: List<Any?>): Any {
+        val key = args[1] as String
+        val values = args.subList(2, args.size).map { it as String }.toTypedArray()
+        return dataStore.rpush(key, *values)
+    }
+
+    private fun handleLPop(args: List<Any?>): Any {
+        val key = args[1] as String
+        return RespBulkString.fromString(dataStore.lpop(key))
+    }
+
+    private fun handleRPop(args: List<Any?>): Any {
+        val key = args[1] as String
+        return RespBulkString.fromString(dataStore.rpop(key))
+    }
+
+    private fun handleLLen(args: List<Any?>): Any {
+        val key = args[1] as String
+        return dataStore.llen(key)
+    }
+
+    private fun handleLRange(args: List<Any?>): Any {
+        val key = args[1] as String
+        val start = (args[2] as String).toLong()
+        val stop = (args[3] as String).toLong()
+        val result = dataStore.lrange(key, start, stop)
+        return result.map { RespBulkString.fromString(it) }
+    }
+
+    private fun handleLTrim(args: List<Any?>): Any {
+        val key = args[1] as String
+        val start = (args[2] as String).toLong()
+        val stop = (args[3] as String).toLong()
+        dataStore.ltrim(key, start, stop)
+        return RespStatus("OK")
+    }
+
+    private fun handleLMove(args: List<Any?>): Any {
+        val source = args[1] as String
+        val destination = args[2] as String
+        val from = (args[3] as String).uppercase()
+        val to = (args[4] as String).uppercase()
+        val fromLeft = when (from) {
+            "LEFT" -> true
+            "RIGHT" -> false
+            else -> throw IllegalArgumentException("syntax error")
+        }
+        val toLeft = when (to) {
+            "LEFT" -> true
+            "RIGHT" -> false
+            else -> throw IllegalArgumentException("syntax error")
+        }
+        val moved = dataStore.lmove(source, destination, fromLeft, toLeft)
+        return RespBulkString.fromString(moved)
     }
 
     private data class SetOptions(

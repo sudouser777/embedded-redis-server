@@ -44,6 +44,7 @@ class DataStore {
         return when (val stored = value.data) {
             is StoredValue.StringValue -> stored.content
             is StoredValue.HashValue -> throw WrongTypeException()
+            is StoredValue.ListValue -> throw WrongTypeException()
         }
     }
 
@@ -139,6 +140,194 @@ class DataStore {
         scope.cancel()
     }
 
+    // List operations
+    fun lpush(key: String, vararg values: String): Long {
+        if (values.isEmpty()) return llen(key)
+        var newLen = 0L
+        data.compute(key) { _, existing ->
+            val target = ensureList(existing, key)
+            val deque = (target.data as StoredValue.ListValue).items
+            values.forEach { v -> deque.addFirst(v) }
+            newLen = deque.size.toLong()
+            synchronizeExpiration(key, target)
+            target
+        }
+        return newLen
+    }
+
+    fun rpush(key: String, vararg values: String): Long {
+        if (values.isEmpty()) return llen(key)
+        var newLen = 0L
+        data.compute(key) { _, existing ->
+            val target = ensureList(existing, key)
+            val deque = (target.data as StoredValue.ListValue).items
+            values.forEach { v -> deque.addLast(v) }
+            newLen = deque.size.toLong()
+            synchronizeExpiration(key, target)
+            target
+        }
+        return newLen
+    }
+
+    fun lpop(key: String): String? {
+        var popped: String? = null
+        data.compute(key) { _, existing ->
+            val now = System.currentTimeMillis()
+            when {
+                existing == null -> null
+                isExpired(existing, now) -> {
+                    expirations.remove(key)
+                    null
+                }
+                existing.data is StoredValue.ListValue -> {
+                    val deque = existing.data.items
+                    popped = if (deque.isEmpty()) null else deque.pollFirst()
+                    if (deque.isEmpty()) {
+                        expirations.remove(key)
+                        null
+                    } else {
+                        synchronizeExpiration(key, existing)
+                        existing
+                    }
+                }
+                else -> throw WrongTypeException()
+            }
+        }
+        return popped
+    }
+
+    fun rpop(key: String): String? {
+        var popped: String? = null
+        data.compute(key) { _, existing ->
+            val now = System.currentTimeMillis()
+            when {
+                existing == null -> null
+                isExpired(existing, now) -> {
+                    expirations.remove(key)
+                    null
+                }
+                existing.data is StoredValue.ListValue -> {
+                    val deque = existing.data.items
+                    popped = if (deque.isEmpty()) null else deque.pollLast()
+                    if (deque.isEmpty()) {
+                        expirations.remove(key)
+                        null
+                    } else {
+                        synchronizeExpiration(key, existing)
+                        existing
+                    }
+                }
+                else -> throw WrongTypeException()
+            }
+        }
+        return popped
+    }
+
+    fun llen(key: String): Long {
+        val list = getListValue(key) ?: return 0
+        return list.items.size.toLong()
+    }
+
+    fun lrange(key: String, start: Long, stop: Long): List<String> {
+        val list = getListValue(key) ?: return emptyList()
+        val snapshot = ArrayList(list.items) // snapshot
+        val size = snapshot.size
+        if (size == 0) return emptyList()
+        val (from, to) = computeRange(size, start, stop) ?: return emptyList()
+        return snapshot.subList(from, to + 1)
+    }
+
+    fun ltrim(key: String, start: Long, stop: Long) {
+        data.compute(key) { _, existing ->
+            val now = System.currentTimeMillis()
+            when {
+                existing == null -> null
+                isExpired(existing, now) -> {
+                    expirations.remove(key)
+                    null
+                }
+                existing.data is StoredValue.ListValue -> {
+                    val deque = existing.data.items
+                    val snapshot = ArrayList(deque)
+                    val size = snapshot.size
+                    val range = computeRange(size, start, stop)
+                    if (range == null) {
+                        expirations.remove(key)
+                        null
+                    } else {
+                        val (from, to) = range
+                        deque.clear()
+                        deque.addAll(snapshot.subList(from, to + 1))
+                        synchronizeExpiration(key, existing)
+                        existing
+                    }
+                }
+                else -> throw WrongTypeException()
+            }
+        }
+    }
+
+    private val lmoveLock = Any()
+
+    fun lmove(source: String, destination: String, fromLeft: Boolean, toLeft: Boolean): String? {
+        synchronized(lmoveLock) {
+            val src = getValue(source) ?: return null
+            val now = System.currentTimeMillis()
+            if (isExpired(src, now)) {
+                data.remove(source)
+                expirations.remove(source)
+                return null
+            }
+            val srcList = when (val d = src.data) {
+                is StoredValue.ListValue -> d.items
+                is StoredValue.StringValue, is StoredValue.HashValue -> throw WrongTypeException()
+            }
+            val elem = if (fromLeft) srcList.pollFirst() else srcList.pollLast()
+            if (elem == null) {
+                if (srcList.isEmpty()) {
+                    data.remove(source)
+                    expirations.remove(source)
+                }
+                return null
+            }
+            if (srcList.isEmpty()) {
+                data.remove(source)
+                expirations.remove(source)
+            } else {
+                // preserve TTL
+                synchronizeExpiration(source, src)
+            }
+
+            // destination
+            val dstExisting = data[destination]
+            val dstValue = when {
+                dstExisting == null -> Value(StoredValue.ListValue(java.util.ArrayDeque()), null)
+                isExpired(dstExisting, now) -> {
+                    data.remove(destination)
+                    expirations.remove(destination)
+                    Value(StoredValue.ListValue(java.util.ArrayDeque()), null)
+                }
+                dstExisting.data is StoredValue.ListValue -> dstExisting
+                else -> throw WrongTypeException()
+            }
+            val dstDeque = (dstValue.data as StoredValue.ListValue).items
+            if (toLeft) dstDeque.addFirst(elem) else dstDeque.addLast(elem)
+            putValue(destination, dstValue)
+            return elem
+        }
+    }
+
+    private fun computeRange(size: Int, start: Long, stop: Long): Pair<Int, Int>? {
+        var from = if (start < 0) (size + start).toInt() else start.toInt()
+        var to = if (stop < 0) (size + stop).toInt() else stop.toInt()
+        if (from < 0) from = 0
+        if (to < 0) to = 0
+        if (from >= size) return null
+        if (to >= size) to = size - 1
+        if (from > to) return null
+        return from to to
+    }
+
     private fun ensureHash(existing: Value?, key: String): Value {
         val now = System.currentTimeMillis()
         return when {
@@ -148,6 +337,19 @@ class DataStore {
                 Value(StoredValue.HashValue(ConcurrentHashMap()), null)
             }
             existing.data is StoredValue.HashValue -> existing
+            else -> throw WrongTypeException()
+        }
+    }
+
+    private fun ensureList(existing: Value?, key: String): Value {
+        val now = System.currentTimeMillis()
+        return when {
+            existing == null -> Value(StoredValue.ListValue(java.util.ArrayDeque()), null)
+            isExpired(existing, now) -> {
+                expirations.remove(key)
+                Value(StoredValue.ListValue(java.util.ArrayDeque()), null)
+            }
+            existing.data is StoredValue.ListValue -> existing
             else -> throw WrongTypeException()
         }
     }
@@ -169,6 +371,16 @@ class DataStore {
         return when (val stored = value.data) {
             is StoredValue.HashValue -> stored
             is StoredValue.StringValue -> throw WrongTypeException()
+            is StoredValue.ListValue -> throw WrongTypeException()
+        }
+    }
+
+    private fun getListValue(key: String): StoredValue.ListValue? {
+        val value = getValue(key) ?: return null
+        return when (val stored = value.data) {
+            is StoredValue.ListValue -> stored
+            is StoredValue.StringValue -> throw WrongTypeException()
+            is StoredValue.HashValue -> throw WrongTypeException()
         }
     }
 
@@ -207,6 +419,7 @@ class DataStore {
     sealed interface StoredValue {
         data class StringValue(val content: String) : StoredValue
         data class HashValue(val entries: ConcurrentHashMap<String, String>) : StoredValue
+        data class ListValue(val items: java.util.ArrayDeque<String>) : StoredValue
     }
 
     companion object {

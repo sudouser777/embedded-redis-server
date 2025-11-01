@@ -87,7 +87,7 @@ Note: Spring integration uses a SmartLifecycle adapter to manage RedisServer sta
 ```kotlin
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
-    implementation("io.github.embeddedredis:embedded-redis-server:1.0.0")
+    implementation("io.github.sudouser777:embedded-redis-server:0.0.3")
     implementation("redis.clients:jedis:5.1.0")
 }
 ```
