@@ -1,13 +1,12 @@
 plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.9.22'
-    id 'org.jetbrains.kotlin.plugin.spring' version '1.9.22'
     id 'java-library'
     id 'application'
     id 'com.vanniktech.maven.publish' version '0.34.0'
 }
 
 group = 'io.github.sudouser777'
-version = '0.0.4'
+version = '0.0.5'
 description = 'Embedded Redis Server - A lightweight, embeddable Redis-compatible server for testing and development'
 
 repositories {
@@ -24,7 +23,8 @@ dependencies {
     implementation 'org.slf4j:slf4j-api:2.0.9'
     compileOnly 'ch.qos.logback:logback-classic:1.5.13'
 
-    // Spring Boot (optional dependencies for auto-configuration)
+    // Spring Boot (optional dependencies for auto-configuration at runtime by consumer)
+    // Keep these as compileOnly so they are NOT included in the published runtime jar
     compileOnly 'org.springframework.boot:spring-boot-starter:3.2.0'
     compileOnly 'org.springframework.boot:spring-boot-autoconfigure:3.2.0'
     annotationProcessor 'org.springframework.boot:spring-boot-autoconfigure-processor:3.2.0'
@@ -51,7 +51,7 @@ kotlin {
 }
 
 application {
-    mainClass = 'io.github.embeddedredis.RedisServerKt'
+    mainClass = 'io.github.sudouser777.RedisServerKt'
 }
 
 mavenPublishing {

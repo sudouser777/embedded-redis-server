@@ -1,4 +1,4 @@
-package io.github.embeddedredis
+package io.github.sudouser777
 
 /**
  * Handles Redis commands
@@ -269,11 +269,12 @@ class CommandHandler(private val dataStore: DataStore) {
     }
 
     private fun handleHello(): Any {
+        // Return HELLO-style key/value pairs with bulk strings for textual values
         return listOf(
-            "server", "redis",
-            "version", "7.0.0",
-            "proto", 2,
-            "mode", "standalone"
+            RespBulkString.fromString("server"), RespBulkString.fromString("redis"),
+            RespBulkString.fromString("version"), RespBulkString.fromString("7.0.0"),
+            RespBulkString.fromString("proto"), 2L,
+            RespBulkString.fromString("mode"), RespBulkString.fromString("standalone")
         )
     }
 

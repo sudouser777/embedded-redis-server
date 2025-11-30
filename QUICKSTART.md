@@ -23,7 +23,7 @@ cd embedded-redis-server
 **Gradle:**
 ```gradle
 dependencies {
-    implementation 'io.github.sudouser777:embedded-redis-server:0.0.4'
+    implementation 'io.github.sudouser777:embedded-redis-server:0.0.5'
 }
 ```
 
@@ -32,7 +32,7 @@ dependencies {
 <dependency>
     <groupId>io.github.sudouser777</groupId>
     <artifactId>embedded-redis-server</artifactId>
-    <version>0.0.4</version>
+    <version>0.0.5</version>
 </dependency>
 ```
 
@@ -41,7 +41,7 @@ dependencies {
 ### Standalone (5 lines of code)
 
 ```kotlin
-import io.github.embeddedredis.RedisServer
+import io.github.sudouser777.RedisServer
 
 val server = RedisServer(port = 6379)
 server.start()
@@ -50,15 +50,56 @@ server.start()
 
 ### Spring Boot (Zero code!)
 
+Add dependencies to your Spring Boot app:
+
+Gradle (Groovy):
+```gradle
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'io.github.sudouser777:embedded-redis-server:0.0.5'
+    implementation 'redis.clients:jedis:5.1.0' // or lettuce
+}
+```
+
+Maven:
+```xml
+<dependencies>
+  <dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter</artifactId>
+  </dependency>
+  <dependency>
+    <groupId>io.github.sudouser777</groupId>
+    <artifactId>embedded-redis-server</artifactId>
+    <version>0.0.5</version>
+  </dependency>
+  <dependency>
+    <groupId>redis.clients</groupId>
+    <artifactId>jedis</artifactId>
+    <version>5.1.0</version>
+  </dependency>
+</dependencies>
+```
+
 **application.yml:**
 ```yaml
 embedded:
   redis:
     enabled: true
     port: 6379
+    host: localhost
+    auto-start: true
 ```
 
 That's it! The server auto-starts with your Spring Boot app.
+
+Logging note: this library uses SLF4J and does not bundle a logging backend. Add one (e.g., Logback) in your app if you want logging output and configure levels, for example:
+
+```yaml
+logging:
+  level:
+    io.github.sudouser777: INFO
+```
 
 ### Testing
 

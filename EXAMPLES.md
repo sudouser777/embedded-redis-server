@@ -18,7 +18,7 @@ This document provides detailed examples of using Embedded Redis Server in vario
 ### Basic Example
 
 ```kotlin
-import io.github.embeddedredis.RedisServer
+import io.github.sudouser777.RedisServer
 
 fun main() {
     val server = RedisServer(port = 6379)
@@ -35,7 +35,7 @@ fun main() {
 ### With Graceful Shutdown
 
 ```kotlin
-import io.github.embeddedredis.RedisServer
+import io.github.sudouser777.RedisServer
 
 fun main() {
     val server = RedisServer(port = 6379, host = "localhost")
@@ -57,7 +57,7 @@ fun main() {
 ### Programmatic Start/Stop
 
 ```kotlin
-import io.github.embeddedredis.RedisServer
+import io.github.sudouser777.RedisServer
 import redis.clients.jedis.Jedis
 
 fun main() {
@@ -80,14 +80,16 @@ fun main() {
 
 ## Spring Boot Application
 
-Note: Spring integration uses a SmartLifecycle adapter to manage RedisServer startup/shutdown. The core RedisServer remains Spring-free for standalone usage.
+Spring integration is optional and provided via auto-configuration. The core `RedisServer` has no Spring dependency; if your app brings Spring Boot, this library's auto-config will create a `RedisServer` bean and manage its lifecycle using a `SmartLifecycle` adapter.
+
+Tip: this library does not bundle a logging backend. Add one in your application (for example, Logback) and configure log levels as needed.
 
 ### Step 1: Dependencies (build.gradle.kts)
 
 ```kotlin
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
-    implementation("io.github.sudouser777:embedded-redis-server:0.0.4")
+    implementation("io.github.sudouser777:embedded-redis-server:0.0.5")
     implementation("redis.clients:jedis:5.1.0")
 }
 ```
@@ -108,7 +110,7 @@ embedded:
 
 logging:
   level:
-    io.github.embeddedredis: INFO
+    io.github.sudouser777: INFO  # set DEBUG for verbose connection-level logs
 ```
 
 ### Step 3: Spring Boot Application
@@ -147,6 +149,35 @@ class CacheService(
         return Jedis("localhost", redisPort).use { jedis ->
             jedis.get(key)
         }
+    }
+}
+```
+
+### Auto-configuration smoke test (no full context)
+
+Use Spring Boot’s `ApplicationContextRunner` to validate the auto-configuration in isolation without starting your whole application:
+
+```kotlin
+import org.assertj.core.api.Assertions.assertThat
+import org.springframework.boot.autoconfigure.AutoConfigurations
+import org.springframework.boot.test.context.runner.ApplicationContextRunner
+
+class EmbeddedRedisAutoConfigSmokeTest {
+    private val contextRunner = ApplicationContextRunner()
+        .withConfiguration(AutoConfigurations.of(io.github.sudouser777.EmbeddedRedisAutoConfiguration::class.java))
+
+    @org.junit.jupiter.api.Test
+    fun `auto-config creates and starts server`() {
+        contextRunner
+            .withPropertyValues(
+                "embedded.redis.enabled=true",
+                "embedded.redis.port=16379",
+                "embedded.redis.auto-start=true"
+            )
+            .run { ctx ->
+                val server = ctx.getBean(io.github.sudouser777.RedisServer::class.java)
+                assertThat(server.isRunning()).isTrue()
+            }
     }
 }
 ```
@@ -203,7 +234,7 @@ class RedisService(private val redisTemplate: RedisTemplate<String, String>) {
 ### Basic Test Setup
 
 ```kotlin
-import io.github.embeddedredis.RedisServer
+import io.github.sudouser777.RedisServer
 import org.junit.jupiter.api.*
 import redis.clients.jedis.Jedis
 import kotlin.test.assertEquals
@@ -342,7 +373,7 @@ class RedisCommandsTest {
 ### Integration Test with Embedded Redis
 
 ```kotlin
-import io.github.embeddedredis.RedisServer
+import io.github.sudouser777.RedisServer
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -409,7 +440,7 @@ class UserServiceTest {
 
 ```kotlin
 import redis.clients.jedis.Jedis
-import io.github.embeddedredis.RedisServer
+import io.github.sudouser777.RedisServer
 
 fun main() {
     val server = RedisServer(port = 6379)
@@ -475,7 +506,7 @@ fun main() {
 ```kotlin
 import io.lettuce.core.RedisClient
 import io.lettuce.core.api.sync.RedisCommands
-import io.github.embeddedredis.RedisServer
+import io.github.sudouser777.RedisServer
 
 fun main() {
     val server = RedisServer(port = 6379)

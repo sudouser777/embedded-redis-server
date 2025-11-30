@@ -3,8 +3,8 @@
 ## 📋 Project Information
 
 - **Project Name**: Embedded Redis Server
-- **Package**: `io.github.embeddedredis`
-- **Version**: 0.0.4
+- **Package**: `io.github.sudouser777`
+- **Version**: 0.0.5
 - **License**: Apache 2.0
 - **GitHub**: https://github.com/sudouser777/embedded-redis-server
 
@@ -12,7 +12,7 @@
 
 ### 1. Project Transformation
 - ✅ Renamed from `redis-demo` to `embedded-redis-server`
-- ✅ Refactored package from `com.redisdemo` to `io.github.embeddedredis`
+- ✅ Refactored package from `com.redisdemo` to `io.github.sudouser777`
 - ✅ Converted to library with Maven publishing support
 - ✅ Added Spring Boot auto-configuration
 
@@ -49,7 +49,7 @@
 embedded-redis-server/
 ├── src/
 │   ├── main/
-│   │   ├── kotlin/io/github/embeddedredis/
+│   │   ├── kotlin/io/github/sudouser777/
 │   │   │   ├── CommandHandler.kt           # Command processing
 │   │   │   ├── DataStore.kt                # In-memory storage
 │   │   │   ├── RedisServer.kt              # TCP server
@@ -60,7 +60,7 @@ embedded-redis-server/
 │   │       └── META-INF/spring/
 │   │           └── org.springframework.boot.autoconfigure.AutoConfiguration.imports
 │   └── test/
-│       └── kotlin/io/github/embeddedredis/
+│       └── kotlin/io/github/sudouser777/
 │           └── RedisServerTest.kt          # Integration tests
 ├── build.gradle                            # Build configuration
 ├── settings.gradle                         # Project settings

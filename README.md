@@ -60,7 +60,7 @@ A lightweight, embeddable Redis-compatible server written in Kotlin. Perfect for
 
 ```gradle
 dependencies {
-    implementation 'io.github.sudouser777:embedded-redis-server:0.0.4'
+    implementation 'io.github.sudouser777:embedded-redis-server:0.0.5'
 }
 ```
 
@@ -70,7 +70,7 @@ dependencies {
 <dependency>
     <groupId>io.github.sudouser777</groupId>
     <artifactId>embedded-redis-server</artifactId>
-    <version>0.0.4</version>
+    <version>0.0.5</version>
 </dependency>
 ```
 
@@ -79,7 +79,7 @@ dependencies {
 ### 1. Standalone Application
 
 ```kotlin
-import io.github.embeddedredis.RedisServer
+import io.github.sudouser777.RedisServer
 
 fun main() {
     // Create and start the server
@@ -99,29 +99,73 @@ fun main() {
 }
 ```
 
-### 2. Spring Boot Integration
+### 2. Spring Boot Integration (Auto-Configuration)
 
-Spring support is provided via a SmartLifecycle adapter bean, keeping the core RedisServer free of Spring dependencies. The adapter starts/stops the server with the application lifecycle.
+Spring support is provided via an Auto-Configuration and a SmartLifecycle adapter bean. The core `RedisServer` remains Spring-free; Spring is optional and not included in this library’s runtime JAR. If your app brings Spring Boot, the auto-configuration will wire things for you.
 
-#### Step 1: Add Dependency
+What this means:
+- No Spring dependency is shaded or bundled by this library.
+- If your app uses Spring Boot, just add this library and configure `embedded.redis.*` properties.
+- A `RedisServer` bean will be created and started automatically on application start if enabled.
 
-Add the embedded-redis-server dependency to your Spring Boot project.
+#### Step 1: Add Dependencies
 
-#### Step 2: Configure (Optional)
+Add the library and your preferred Redis client to your Spring Boot project.
+
+Gradle (Kotlin):
+```kotlin
+dependencies {
+    implementation("org.springframework.boot:spring-boot-starter")
+    implementation("io.github.sudouser777:embedded-redis-server:0.0.5")
+    implementation("redis.clients:jedis:5.1.0") // or lettuce
+}
+```
+
+Gradle (Groovy):
+```gradle
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'io.github.sudouser777:embedded-redis-server:0.0.5'
+    implementation 'redis.clients:jedis:5.1.0' // or lettuce
+}
+```
+
+Maven:
+```xml
+<dependencies>
+  <dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter</artifactId>
+  </dependency>
+  <dependency>
+    <groupId>io.github.sudouser777</groupId>
+    <artifactId>embedded-redis-server</artifactId>
+    <version>0.0.5</version>
+  </dependency>
+  <dependency>
+    <groupId>redis.clients</groupId>
+    <artifactId>jedis</artifactId>
+    <version>5.1.0</version>
+  </dependency>
+  <!-- or lettuce instead of jedis -->
+</dependencies>
+```
+
+#### Step 2: Configure properties (optional)
 
 Add configuration to your `application.yml` or `application.properties`:
 
-**application.yml:**
+application.yml:
 ```yaml
 embedded:
   redis:
-    enabled: true      # Enable/disable embedded Redis (default: true)
-    port: 6379         # Redis port (default: 6379)
-    host: localhost    # Bind address (default: localhost)
-    auto-start: true   # Auto-start on app startup (default: true)
+    enabled: true       # Enable/disable embedded Redis (default: true)
+    port: 6379          # Port to listen on (default: 6379)
+    host: localhost     # Bind address (default: localhost)
+    auto-start: true    # Start automatically on app startup (default: true)
 ```
 
-**application.properties:**
+application.properties:
 ```properties
 embedded.redis.enabled=true
 embedded.redis.port=6379
@@ -129,9 +173,13 @@ embedded.redis.host=localhost
 embedded.redis.auto-start=true
 ```
 
-#### Step 3: Use in Your Application
+Notes:
+- When running inside Spring Boot, default host is `localhost` unless overridden.
+- If you want to delay startup or manage the server manually, set `embedded.redis.auto-start=false` and inject the `RedisServer` bean to call `start()` yourself.
 
-The embedded Redis server will automatically start when your Spring Boot application starts (if embedded.redis.auto-start=true). Under the hood, a RedisServer bean is created and a RedisServerLifecycleAdapter manages its lifecycle.
+#### Step 3: Boot your app
+
+With properties set, the embedded Redis server will start automatically alongside your Spring Boot app.
 
 ```kotlin
 @SpringBootApplication
@@ -156,6 +204,36 @@ class MyService {
         val value = jedis.get("key")
 
         jedis.close()
+    }
+}
+```
+
+#### Spring Boot test without bringing up the full app context
+
+You can also use Spring Boot’s `ApplicationContextRunner` to test the auto-configuration in isolation.
+
+```kotlin
+import org.assertj.core.api.Assertions.assertThat
+import org.springframework.boot.autoconfigure.AutoConfigurations
+import org.springframework.boot.test.context.runner.ApplicationContextRunner
+
+class EmbeddedRedisAutoConfigurationSampleTest {
+    private val contextRunner = ApplicationContextRunner()
+        .withConfiguration(AutoConfigurations.of(io.github.sudouser777.EmbeddedRedisAutoConfiguration::class.java))
+
+    @org.junit.jupiter.api.Test
+    fun `auto-config creates and starts server by default`() {
+        contextRunner
+            .withPropertyValues(
+                "embedded.redis.enabled=true",
+                "embedded.redis.port=16379",
+                "embedded.redis.auto-start=true"
+            )
+            .run { ctx ->
+                val server = ctx.getBean(io.github.sudouser777.RedisServer::class.java)
+                assertThat(server).isNotNull
+                assertThat(server.isRunning()).isTrue()
+            }
     }
 }
 ```
@@ -228,8 +306,10 @@ class MySpringBootTest {
 
 ```kotlin
 val server = RedisServer(
-    port = 6379,           // Port number (default: 6379)
-    host = "0.0.0.0"       // Bind address (default: 0.0.0.0)
+    port = 6379,            // Port number (default: 6379)
+    host = "0.0.0.0",       // Bind address (default: 0.0.0.0)
+    // Optional tuning knobs (Redis-like defaults):
+    // socketReadTimeoutMs = 0   // 0 = disabled (no read timeout)
 )
 ```
 
@@ -241,6 +321,22 @@ val server = RedisServer(
 | `embedded.redis.port` | Integer | `6379` | Port for Redis server |
 | `embedded.redis.host` | String | `localhost` | Host address to bind |
 | `embedded.redis.auto-start` | Boolean | `true` | Auto-start server on app startup |
+
+### Logging configuration
+
+This library uses SLF4J. It does not ship any logging backend in the main artifact, so your application should provide one (e.g., Logback or Log4j2).
+
+Examples:
+- Logback (Gradle): `implementation("ch.qos.logback:logback-classic:1.5.13")`
+
+To reduce log noise in normal operation, per-connection messages are logged at DEBUG. You can enable DEBUG logs for troubleshooting:
+
+application.yml:
+```yaml
+logging:
+  level:
+    io.github.sudouser777: DEBUG
+```
 
 ## Use Cases
 
