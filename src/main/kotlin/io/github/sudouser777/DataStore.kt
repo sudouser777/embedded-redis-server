@@ -1,4 +1,4 @@
-package io.github.embeddedredis
+package io.github.sudouser777
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -11,7 +11,9 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * In-memory data store with TTL and composite value support.
  */
-class DataStore {
+class DataStore(
+    private val cleanupIntervalMs: Long = 100L // roughly Redis default hz=10
+) {
     private val data = ConcurrentHashMap<String, Value>()
     private val expirations = ConcurrentHashMap<String, Long>()
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -20,24 +22,42 @@ class DataStore {
     init {
         scope.launch {
             while (true) {
-                delay(100)
+                delay(cleanupIntervalMs)
                 cleanupExpired()
             }
         }
     }
 
     fun set(key: String, value: String, expirationMs: Long? = null, nx: Boolean = false, xx: Boolean = false): Boolean {
-        val current = getValue(key)
-        if (nx && current != null) {
-            return false
+        var succeeded = false
+        data.compute(key) { _, existing ->
+            val now = System.currentTimeMillis()
+            val effectiveExisting = when {
+                existing == null -> null
+                isExpired(existing, now) -> {
+                    expirations.remove(key)
+                    null
+                }
+                else -> existing
+            }
+
+            if (nx && effectiveExisting != null) {
+                // Do not modify the value
+                succeeded = false
+                effectiveExisting
+            } else if (xx && effectiveExisting == null) {
+                // Must exist, but it doesn't
+                succeeded = false
+                null
+            } else {
+                val expiresAt = expirationMs?.let { now + it }
+                val newVal = Value(StoredValue.StringValue(value), expiresAt)
+                synchronizeExpiration(key, newVal)
+                succeeded = true
+                newVal
+            }
         }
-        if (xx && current == null) {
-            return false
-        }
-        val expiresAt = expirationMs?.let { System.currentTimeMillis() + it }
-        val storedValue = Value(StoredValue.StringValue(value), expiresAt)
-        putValue(key, storedValue)
-        return true
+        return succeeded
     }
 
     fun get(key: String): String? {

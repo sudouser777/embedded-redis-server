@@ -1,4 +1,4 @@
-package io.github.embeddedredis
+package io.github.sudouser777
 
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -89,8 +89,11 @@ object RespProtocol {
             }
             totalRead += read
         }
-        reader.read()
-        reader.read()
+        val cr = reader.read()
+        val lf = reader.read()
+        if (cr != '\r'.code || lf != '\n'.code) {
+            throw IllegalArgumentException("Invalid bulk string termination: expected CRLF")
+        }
         return String(bytes, StandardCharsets.UTF_8)
     }
 

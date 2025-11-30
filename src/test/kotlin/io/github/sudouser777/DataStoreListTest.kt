@@ -1,4 +1,4 @@
-package io.github.embeddedredis
+package io.github.sudouser777
 
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals

@@ -1,4 +1,4 @@
-package io.github.embeddedredis
+package io.github.sudouser777
 
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test

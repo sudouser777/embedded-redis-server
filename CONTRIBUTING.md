@@ -99,14 +99,14 @@ We actively welcome your pull requests:
 ```
 embedded-redis-server/
 ├── src/
-│   ├── main/kotlin/io/github/embeddedredis/
+│   ├── main/kotlin/io/github/sudouser777/
 │   │   ├── CommandHandler.kt          # Command processing
 │   │   ├── DataStore.kt               # In-memory storage
 │   │   ├── RedisServer.kt             # TCP server
 │   │   ├── RespProtocol.kt            # RESP2 protocol
 │   │   ├── EmbeddedRedisProperties.kt # Spring Boot properties
 │   │   └── EmbeddedRedisAutoConfiguration.kt
-│   └── test/kotlin/io/github/embeddedredis/
+│   └── test/kotlin/io/github/sudouser777/
 │       └── RedisServerTest.kt         # Integration tests
 ├── build.gradle                       # Build configuration
 └── README.md                          # Documentation

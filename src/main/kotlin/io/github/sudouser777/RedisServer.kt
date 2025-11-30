@@ -1,4 +1,4 @@
-package io.github.embeddedredis
+package io.github.sudouser777
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.*
 import java.net.ServerSocket
@@ -12,7 +12,8 @@ private val logger = KotlinLogging.logger {}
  */
 class RedisServer(
     private val port: Int = 6379,
-    private val host: String = "0.0.0.0"
+    private val host: String = "0.0.0.0",
+    private val socketReadTimeoutMs: Int = 0 // Redis default: 0 = no timeout
 ) {
     private val dataStore = DataStore()
     private val commandHandler = CommandHandler(dataStore)
@@ -36,7 +37,8 @@ class RedisServer(
             try {
                 while (isActive) {
                     val client = serverSocket!!.accept()
-                    logger.info { "Client connected: ${client.inetAddress.hostAddress}:${client.port}" }
+                    // Connection lifecycle logs at DEBUG to keep INFO noise low
+                    logger.debug { "Client connected: ${client.inetAddress.hostAddress}:${client.port}" }
                     launch {
                         handleClient(client)
                     }
@@ -44,7 +46,7 @@ class RedisServer(
             } catch (_: CancellationException) {
                 logger.debug { "Accept loop canceled" }
             } catch (e: Exception) {
-                if (isActive) {
+                if (isActive && running.get()) {
                     logger.error(e) { "Error accepting connections" }
                 }
             }
@@ -56,6 +58,8 @@ class RedisServer(
             client.use { socket ->
                 socket.tcpNoDelay = true
                 socket.keepAlive = true
+                // Apply read timeout to avoid indefinitely stuck reads (0 means no timeout)
+                socket.soTimeout = socketReadTimeoutMs
                 val input = BufferedInputStream(socket.getInputStream())
                 val output = BufferedOutputStream(socket.getOutputStream())
                 while (!socket.isClosed) {
@@ -98,6 +102,7 @@ class RedisServer(
                 }
             }
         } catch (e: Exception) {
+            // Treat as normal disconnect; keep at DEBUG level
             logger.debug { "Client disconnected: ${e.message}" }
         }
     }
@@ -107,15 +112,15 @@ class RedisServer(
         }
         logger.info { "Shutting down Redis server" }
         try {
+            acceptJob?.cancel()
+        } catch (_: Exception) {
+        }
+        try {
             serverSocket?.close()
         } catch (e: Exception) {
             logger.debug { "Error closing server socket: ${e.message}" }
         } finally {
             serverSocket = null
-        }
-        try {
-            acceptJob?.cancel()
-        } catch (_: Exception) {
         }
         scope.cancel()
         dataStore.shutdown()

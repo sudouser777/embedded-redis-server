@@ -1,4 +1,4 @@
-package io.github.embeddedredis
+package io.github.sudouser777
 
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
@@ -10,6 +10,7 @@ import jakarta.annotation.PreDestroy
 /**
  * Spring Boot Auto-configuration for Embedded Redis Server
  */
+@Suppress("ImplicitSubclassInspection")
 @AutoConfiguration
 @ConditionalOnClass(RedisServer::class)
 @ConditionalOnProperty(prefix = "embedded.redis", name = ["enabled"], havingValue = "true", matchIfMissing = true)
