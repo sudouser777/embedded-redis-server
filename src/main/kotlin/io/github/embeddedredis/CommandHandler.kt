@@ -12,19 +12,9 @@ class CommandHandler(private val dataStore: DataStore) {
 
     private enum class CommandName {
         PING, ECHO, SET, GET, DEL, EXISTS, COMMAND, HELLO, SETNX, SETEX, HSET, HSETNX, HGET, HMGET, HINCRBY,
-        LPUSH, RPUSH, LPOP, RPOP, LLEN, LMOVE, LRANGE, LTRIM,
-        // List QoL
-        LINDEX, LSET, LPUSHX, RPUSHX, LINSERT,
-        // List remaining non-blocking
-        LREM, RPOPLPUSH,
-        // Hash completeness
-        HDEL, HEXISTS, HLEN, HGETALL, HKEYS, HVALS,
-        // Expiration related
-        EXPIRE, PEXPIRE, PERSIST, TTL, PTTL,
-        // String batch and counters
-        MGET, MSET, INCR, DECR, INCRBY, DECRBY, GETSET,
-        // Keyspace iteration
-        SCAN;
+        LPUSH, RPUSH, LPOP, RPOP, LLEN, LMOVE, LRANGE, LTRIM, LINDEX, LSET, LPUSHX, RPUSHX, LINSERT, LREM, RPOPLPUSH,
+        HDEL, HEXISTS, HLEN, HGETALL, HKEYS, HVALS, EXPIRE, PEXPIRE, PERSIST, TTL, PTTL, MGET, MSET, INCR, DECR,
+        INCRBY, DECRBY, GETSET, SCAN;
 
         val lower: String
             get() = name.lowercase()
@@ -633,7 +623,7 @@ class CommandHandler(private val dataStore: DataStore) {
             throw IllegalArgumentException("value is not an integer or out of range")
         }
         var match: String? = null
-        var count: Int = 10 // default
+        var count = 10 // default
         var i = 2
         var seenMatch = false
         var seenCount = false

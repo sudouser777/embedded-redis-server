@@ -4,7 +4,7 @@
 
 - **Project Name**: Embedded Redis Server
 - **Package**: `io.github.embeddedredis`
-- **Version**: 0.0.3
+- **Version**: 0.0.4
 - **License**: Apache 2.0
 - **GitHub**: https://github.com/sudouser777/embedded-redis-server
 

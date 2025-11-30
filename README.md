@@ -60,7 +60,7 @@ A lightweight, embeddable Redis-compatible server written in Kotlin. Perfect for
 
 ```gradle
 dependencies {
-    implementation 'io.github.sudouser777:embedded-redis-server:0.0.3'
+    implementation 'io.github.sudouser777:embedded-redis-server:0.0.4'
 }
 ```
 
@@ -70,7 +70,7 @@ dependencies {
 <dependency>
     <groupId>io.github.sudouser777</groupId>
     <artifactId>embedded-redis-server</artifactId>
-    <version>0.0.3</version>
+    <version>0.0.4</version>
 </dependency>
 ```
 

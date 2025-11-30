@@ -321,8 +321,8 @@ class DataStore {
                     newVal
                 }
                 existing.data is StoredValue.StringValue -> {
-                    old = (existing.data as StoredValue.StringValue).content
-                    // Clear TTL when setting new value
+                    old = existing.data.content
+                    // Clear TTL when setting a new value
                     val newVal = Value(StoredValue.StringValue(value), null)
                     synchronizeExpiration(key, newVal)
                     newVal
@@ -764,14 +764,12 @@ class DataStore {
                             }
                             count > 0 -> {
                                 var remaining = count
-                                if (remaining > 0) {
-                                    val it = deque.iterator()
-                                    while (it.hasNext() && remaining > 0) {
-                                        if (it.next() == value) {
-                                            it.remove()
-                                            removed++
-                                            remaining--
-                                        }
+                                val it = deque.iterator()
+                                while (it.hasNext() && remaining > 0) {
+                                    if (it.next() == value) {
+                                        it.remove()
+                                        removed++
+                                        remaining--
                                     }
                                 }
                             }
